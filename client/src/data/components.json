@@ -1,0 +1,32 @@
+[
+  {
+    "partNumber": "ESP32-DEVKITC",
+    "name": "ESP32 DevKitC",
+    "specs": "ESP32 30-pin, 3.3V logic, Wi-Fi/Bluetooth",
+    "quantity": 8
+  },
+  {
+    "partNumber": "ARDUINO-UNO",
+    "name": "Arduino Uno",
+    "specs": "ATmega328P, 5V logic, USB power",
+    "quantity": 5
+  },
+  {
+    "partNumber": "5V-TEMP",
+    "name": "5V Temperature Sensor",
+    "specs": "Analog output, 5V supply, basic environmental sensing",
+    "quantity": 10
+  },
+  {
+    "partNumber": "3V-ACCEL",
+    "name": "3.3V Accelerometer",
+    "specs": "I2C accelerometer, 3.3V logic, motion detection",
+    "quantity": 6
+  },
+  {
+    "partNumber": "ESP32-S3",
+    "name": "ESP32-S3 Module",
+    "specs": "AI-enabled, 3.3V logic, USB-C programming",
+    "quantity": 4
+  }
+]
