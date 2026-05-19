@@ -1,47 +1,64 @@
 import React from 'react';
+import StatusBadge from './StatusBadge';
 
-const EquipmentCard = ({ equipment, onReserve }) => {
-  const isAvailable = equipment.status;
-  const badgeStyle = {
-    padding: '0.35rem 0.75rem',
-    borderRadius: '999px',
-    color: '#fff',
-    backgroundColor: isAvailable ? '#28a745' : '#dc3545',
-    fontWeight: '600',
-    display: 'inline-block',
-  };
+/**
+ * EquipmentCard Component
+ * Displays individual hardware item with specifications, availability, and checkout button
+ * Styled with Tailwind CSS for modern dark-theme aesthetic
+ */
+const EquipmentCard = ({ equipment, onCheckout }) => {
+  const isAvailable = equipment.currentAvailable > 0;
 
   return (
-    <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '1rem', maxWidth: '320px', marginBottom: '1rem' }}>
-      <div style={{ marginBottom: '0.75rem' }}>
+    <div className="bg-white rounded-xl shadow-md card-hover overflow-hidden max-w-sm border border-gray-200">
+      {/* Image Section */}
+      <div className="relative h-48 bg-gray-100 overflow-hidden">
         <img
-          src={equipment.imageURL || 'https://via.placeholder.com/320x180?text=Equipment'}
+          src={equipment.imageURL || 'https://via.placeholder.com/320x240?text=Equipment'}
           alt={equipment.name}
-          style={{ width: '100%', borderRadius: '6px', objectFit: 'cover' }}
+          className="w-full h-full object-cover"
         />
+        <div className="absolute top-3 right-3">
+          <StatusBadge available={equipment.currentAvailable} total={equipment.totalQuantity} />
+        </div>
       </div>
 
-      <h3 style={{ margin: '0 0 0.5rem 0' }}>{equipment.name}</h3>
-      <p style={{ margin: '0 0 0.75rem 0', color: '#555' }}>{equipment.category}</p>
-      <span style={badgeStyle}>{isAvailable ? 'Available' : 'In Use'}</span>
+      {/* Content Section */}
+      <div className="p-5">
+        {/* Title & Category */}
+        <h3 className="text-lg font-bold text-gray-900 mb-1">{equipment.name}</h3>
+        <p className="text-xs font-semibold text-stem-600 uppercase mb-3">{equipment.category}</p>
 
-      <div style={{ marginTop: '1rem' }}>
+        {/* Specifications Preview */}
+        <div className="bg-gray-50 p-3 rounded-lg mb-4 space-y-1 text-xs">
+          {Object.entries(equipment.specs).slice(0, 2).map(([key, value]) => (
+            <div key={key} className="flex justify-between text-gray-700">
+              <span className="font-semibold">{key}:</span>
+              <span className="text-gray-600">{value}</span>
+            </div>
+          ))}
+          {Object.keys(equipment.specs).length > 2 && (
+            <p className="text-gray-500 italic">+ {Object.keys(equipment.specs).length - 2} more specs</p>
+          )}
+        </div>
+
+        {/* Availability Summary */}
+        <div className="bg-blue-50 p-2 rounded mb-4 text-xs text-blue-900">
+          <span className="font-semibold">{equipment.currentAvailable}</span> of{' '}
+          <span className="font-semibold">{equipment.totalQuantity}</span> available
+        </div>
+
+        {/* Checkout Button */}
         <button
-          type="button"
-          onClick={() => onReserve(equipment._id)}
+          onClick={() => onCheckout(equipment)}
           disabled={!isAvailable}
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            borderRadius: '6px',
-            border: 'none',
-            cursor: isAvailable ? 'pointer' : 'not-allowed',
-            backgroundColor: isAvailable ? '#007bff' : '#6c757d',
-            color: '#fff',
-            fontWeight: '600',
-          }}
+          className={`w-full py-2 rounded-lg font-semibold transition ${
+            isAvailable
+              ? 'bg-stem-600 hover:bg-stem-700 text-white cursor-pointer'
+              : 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-50'
+          }`}
         >
-          Reserve
+          {isAvailable ? 'Checkout' : 'Out of Stock'}
         </button>
       </div>
     </div>

@@ -1,6 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Styles */
 body {
   margin: 0;
-  background-color: #f5f7fb;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #1f2937;
 }
 
@@ -11,3 +16,17 @@ body {
 button {
   font: inherit;
 }
+
+/* Custom utility classes */
+.card-hover {
+  @apply transition-all duration-200 hover:shadow-xl hover:-translate-y-1;
+}
+
+.btn-primary {
+  @apply px-4 py-2 bg-stem-600 hover:bg-stem-700 text-white rounded-lg font-semibold transition;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-900 rounded-lg font-semibold transition;
+}
+
