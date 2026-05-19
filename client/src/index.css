@@ -2,11 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global Styles */
+/**
+ * Lab-Reserve PRO Global Styles
+ * Dark-theme "Command Center" aesthetic
+ * Electric blue accents, professional typography
+ */
+
+/* ===== BASE STYLES ===== */
 body {
   margin: 0;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #1f2937;
+  background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
+  color: #e5e7eb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body, #root {
+  height: 100%;
 }
 
 * {
@@ -17,16 +32,104 @@ button {
   font: inherit;
 }
 
-/* Custom utility classes */
+/* ===== CUSTOM UTILITY CLASSES ===== */
+
+/* Card hover: Lift effect with blue glow */
 .card-hover {
-  @apply transition-all duration-200 hover:shadow-xl hover:-translate-y-1;
+  @apply transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/50 hover:-translate-y-2;
 }
 
+/* Primary button: Blue gradient */
 .btn-primary {
-  @apply px-4 py-2 bg-stem-600 hover:bg-stem-700 text-white rounded-lg font-semibold transition;
+  @apply px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-blue-500/50;
 }
 
+/* Secondary button: Gray theme */
 .btn-secondary {
-  @apply px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-900 rounded-lg font-semibold transition;
+  @apply px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-100 rounded-lg font-semibold transition-colors border border-gray-700;
 }
+
+/* Badge: High-visibility status indicator */
+.badge {
+  @apply inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
+}
+
+.badge-success {
+  @apply badge bg-green-900 text-green-200;
+}
+
+.badge-warning {
+  @apply badge bg-orange-900 text-orange-200;
+}
+
+.badge-error {
+  @apply badge bg-red-900 text-red-200;
+}
+
+.badge-info {
+  @apply badge bg-blue-900 text-blue-200;
+}
+
+/* Spec banner: High-contrast accent */
+.spec-banner {
+  @apply bg-blue-500 text-gray-900 px-3 py-2 rounded text-xs font-bold text-center;
+}
+
+/* Smooth scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
+}
+
+/* ===== ANIMATIONS ===== */
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* ===== RESPONSIVE UTILITIES ===== */
+
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+}
+
 
