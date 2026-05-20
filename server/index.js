@@ -4,6 +4,7 @@ const cors = require('cors');
 const bookingRoutes = require('./routes/booking');
 const checkoutRoutes = require('./routes/checkout');
 const verifyRoutes = require('./routes/verify');
+const verifySchemaRoutes = require('./routes/verify-schema');
 
 const app = express();
 app.use(cors());
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
 app.use('/api/booking', bookingRoutes);
 app.use('/api/checkout', checkoutRoutes);
 app.use('/api/verify', verifyRoutes);
+app.use('/api', verifySchemaRoutes);
 
 // 4. Localhost fallback (Only runs locally, Vercel ignores this part)
 if (process.env.NODE_ENV !== 'production') {
