@@ -9,6 +9,7 @@
 
 import { useState, useMemo } from 'react';
 import StatusBadge from './StatusBadge';
+import { safeJsonFetch } from '../utils/api';
 
 export default function CheckoutModal({ item, onClose, onCheckout }) {
   const [quantity, setQuantity] = useState(1);
@@ -46,28 +47,27 @@ export default function CheckoutModal({ item, onClose, onCheckout }) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/checkout', {
+      await safeJsonFetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itemId: item.id,
-          quantity,
+          items: [
+            {
+              itemId: item.id,
+              quantity,
+              productName: item.name,
+            },
+          ],
           studentId,
         }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        alert('✓ Checkout successful! Thank you for using Lab-Reserve.');
-        onCheckout();
-        onClose();
-      } else {
-        alert(`Checkout failed: ${data.message || 'Unknown error'}`);
-      }
+      alert('Checkout successful. Thank you for using Lab-Reserve.');
+      onCheckout();
+      onClose();
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('Network error. Please try again.');
+      alert(error.message || 'Network error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

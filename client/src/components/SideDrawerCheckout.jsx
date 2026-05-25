@@ -17,6 +17,7 @@
  */
 
 import { useState } from 'react';
+import { safeJsonFetch } from '../utils/api';
 
 export default function SideDrawerCheckout({ product, onClose, onCheckout, isOpen }) {
   const [projectName, setProjectName] = useState('');
@@ -63,30 +64,29 @@ export default function SideDrawerCheckout({ product, onClose, onCheckout, isOpe
 
     try {
       // ===== API CALL: Submit checkout =====
-      const response = await fetch('/api/checkout', {
+      await safeJsonFetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itemId: product.id,
+          items: [
+            {
+              itemId: product.id,
+              quantity: 1,
+              productName: product.name,
+            },
+          ],
           studentId: projectName, // Using project name as identifier
-          quantity: 1,
           projectName,
           expectedReturnDate: returnDate,
         }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        alert(`✅ ${product.name} reserved successfully!\n\nProject: ${projectName}\nReturn by: ${returnDate}`);
-        onCheckout();
-        onClose();
-      } else {
-        setValidationError(data.message || 'Checkout failed. Please try again.');
-      }
+      alert(`${product.name} reserved successfully.\n\nProject: ${projectName}\nReturn by: ${returnDate}`);
+      onCheckout();
+      onClose();
     } catch (error) {
       console.error('Checkout error:', error);
-      setValidationError('Network error. Please try again.');
+      setValidationError(error.message || 'Network error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

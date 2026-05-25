@@ -20,16 +20,26 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { safeJsonFetch } from '../utils/api';
 
 /**
  * EXAMPLE BOM DATA
  * Pre-filled example for testing
  */
 const EXAMPLE_BOM = `[
-  { "component": "esp32", "quantity": 1 },
-  { "component": "dht11", "quantity": 1 },
-  { "component": "hc-sr04", "quantity": 1 }
+  { "id": "host-1", "partNumber": "MCU-ESP32-WROOM32", "quantity": 1 },
+  { "id": "sensor-1", "partNumber": "SNS-HCSR04-5V", "quantity": 1, "suppliedBy": "host-1" }
 ]`;
+
+function parseBomInput(fileContent) {
+  const parsed = JSON.parse(fileContent);
+  if (Array.isArray(parsed)) return { components: parsed };
+  return parsed;
+}
+
+function getResultScore(result) {
+  return result?.circuitSafetyScore ?? result?.safetyScore ?? 0;
+}
 
 function CircuitValidatorPage() {
   // ===== STATE =====
@@ -123,24 +133,19 @@ function CircuitValidatorPage() {
         return;
       }
 
+      const payload = detectedFileType === 'json'
+        ? parseBomInput(fileContent)
+        : { fileContent, fileType: detectedFileType };
+
       // Call backend validation API
-      const response = await fetch('/api/verify-schema', {
+      const data = await safeJsonFetch('/api/verify-schema', {
         method: 'POST',
+        throwOnHttpError: false,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileContent,
-          fileType: detectedFileType,
-          components: []
-        })
+        body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Validation failed');
-      } else {
-        setValidationResult(data);
-      }
+      setValidationResult(data);
     } catch (err) {
       setError(`Error: ${err.message}`);
     } finally {
@@ -333,16 +338,16 @@ function CircuitValidatorPage() {
             {validationResult && (
               <div className="space-y-4">
                 {/* SAFETY SCORE CARD */}
-                <div className={`rounded-lg border p-6 ${getSafetyBadge(validationResult.safetyScore)}`}>
+                <div className={`rounded-lg border p-6 ${getSafetyBadge(getResultScore(validationResult))}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold">Safety Score</p>
-                      <p className="text-3xl font-bold mt-1">{validationResult.safetyScore}/100</p>
+                      <p className="text-3xl font-bold mt-1">{getResultScore(validationResult)}/100</p>
                     </div>
                     <div className="text-5xl">
-                      {validationResult.safetyScore >= 80 ? '✅' : 
-                       validationResult.safetyScore >= 50 ? '⚠️' : 
-                       validationResult.safetyScore >= 20 ? '⛔' : '🚫'}
+                      {getResultScore(validationResult) >= 80 ? 'OK' :
+                       getResultScore(validationResult) >= 50 ? '!' :
+                       getResultScore(validationResult) >= 20 ? '!!' : 'X'}
                     </div>
                   </div>
                 </div>
@@ -354,10 +359,34 @@ function CircuitValidatorPage() {
                       ? '✓ Circuit Validation Complete'
                       : '❌ Circuit Has Critical Issues'}
                   </p>
-                  <p className="text-sm text-gray-600 mt-2">{validationResult.summary}</p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {validationResult.diagnostics
+                      ? `${validationResult.diagnostics.knownComponentCount} known components checked across ${validationResult.diagnostics.connectionCount} declared connections.`
+                      : validationResult.summary}
+                  </p>
                 </div>
 
-                {/* VIOLATIONS */}
+                {/* NEW VALIDATOR WARNINGS */}
+                {validationResult.warnings && validationResult.warnings.length > 0 && (
+                  <div className="bg-red-50 rounded-lg border border-red-200 p-4">
+                    <p className="font-bold text-red-900 mb-3">
+                      Diagnostics ({validationResult.warnings.length})
+                    </p>
+                    <ul className="space-y-3">
+                      {validationResult.warnings.map((warning, idx) => (
+                        <li key={idx} className="text-sm text-red-800">
+                          <p className="font-semibold">
+                            {warning.code}: {warning.componentName}
+                          </p>
+                          <p>{warning.message}</p>
+                          <p className="mt-1 text-red-700">Fix: {warning.mitigation}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* LEGACY VIOLATIONS */}
                 {validationResult.violations && (
                   <>
                     {/* CRITICAL VIOLATIONS */}

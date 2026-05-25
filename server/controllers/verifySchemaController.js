@@ -1,10 +1,42 @@
 const { validateCircuitSchema } = require('../logic/hardwareValidator');
 
 function verifySchema(req, res) {
-  const report = validateCircuitSchema(req.body);
+  const payload = normalizeVerifyPayload(req.body);
+  const report = validateCircuitSchema(payload);
   const statusCode = report.success ? 200 : 400;
 
   return res.status(statusCode).json(report);
+}
+
+function normalizeVerifyPayload(body = {}) {
+  if (!body.fileContent) return body;
+
+  if (body.fileType && body.fileType !== 'json') {
+    return body;
+  }
+
+  let parsed;
+
+  try {
+    parsed = JSON.parse(body.fileContent);
+  } catch (error) {
+    error.statusCode = 400;
+    error.message = 'Uploaded schema must be valid JSON.';
+    throw error;
+  }
+  if (Array.isArray(parsed)) {
+    return {
+      ...body,
+      components: parsed,
+      fileContent: undefined,
+    };
+  }
+
+  return {
+    ...body,
+    ...parsed,
+    fileContent: undefined,
+  };
 }
 
 function getSchemaExample(req, res) {

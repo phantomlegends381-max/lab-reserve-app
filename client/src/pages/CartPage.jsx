@@ -20,6 +20,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { safeJsonFetch } from '../utils/api';
 
 function CartPage() {
   // ===== STATE =====
@@ -63,19 +64,13 @@ function CartPage() {
       };
 
       // Call backend checkout endpoint
-      const response = await fetch('/api/checkout', {
+      await safeJsonFetch('/api/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(checkoutData)
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Checkout failed');
-      }
 
       // Success!
       setSuccess(true);

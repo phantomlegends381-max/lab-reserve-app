@@ -34,6 +34,12 @@ import CartPage from './pages/CartPage';
 import { CartProvider } from './context/CartContext';
 import { premiumInventory } from './data/premiumInventory';
 
+function asSearchText(value) {
+  if (Array.isArray(value)) return value.join(' ');
+  if (value && typeof value === 'object') return Object.values(value).join(' ');
+  return value == null ? '' : String(value);
+}
+
 /**
  * StorefrontPage
  * Main product browsing and shopping page
@@ -68,10 +74,10 @@ function StorefrontPage() {
   // ===== FILTERING LOGIC =====
   // useMemo optimizes filtering to prevent unnecessary recalculations
   const filteredProducts = useMemo(() => {
-    return premiumInventory.filter((product) => {
+    return premiumInventory.filter((product = {}) => {
       // STEP 1: Category filtering
       if (selectedCategory !== 'All') {
-        const categoryMatch = product.category.toLowerCase().includes(
+        const categoryMatch = asSearchText(product.category).toLowerCase().includes(
           selectedCategory.toLowerCase()
         );
         if (!categoryMatch) return false;
@@ -82,15 +88,19 @@ function StorefrontPage() {
         const searchLower = searchTerm.toLowerCase();
         
         const matches = [
-          product.name.toLowerCase(),
-          product.sku.toLowerCase(),
-          product.specsBanner.toLowerCase(),
-          product.features.toLowerCase(),
-          product.voltage?.toLowerCase()
+          product.name,
+          product.sku,
+          product.partNumber,
+          product.category,
+          product.specsBanner,
+          product.features,
+          product.voltage,
+          product.specs,
+          product.logistics
         ];
 
         const hasMatch = matches.some((field) =>
-          field.includes(searchLower)
+          asSearchText(field).toLowerCase().includes(searchLower)
         );
 
         if (!hasMatch) return false;
@@ -137,6 +147,7 @@ function StorefrontPage() {
             </p>
             <button
               onClick={() => {
+                setSearchInput('');
                 setSearchTerm('');
                 setSelectedCategory('All');
               }}
