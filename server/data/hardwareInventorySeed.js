@@ -1,0 +1,101 @@
+const categories = {
+  mcu: 'Microcontrollers',
+  sbc: 'Single Board Computers',
+  sensor: 'Sensors',
+  actuator: 'Actuators',
+  power: 'Power Management',
+  discrete: 'Discrete Semis',
+};
+
+function item(index, data) {
+  const padded = String(index).padStart(3, '0');
+
+  return {
+    status: true,
+    quantity: data.quantity || 6,
+    totalQuantity: data.quantity || 6,
+    currentAvailable: data.quantity || 6,
+    imageURL: data.imageURL || '',
+    partNumber: data.partNumber,
+    serialNumber: data.serialNumber,
+    name: data.name,
+    category: data.category,
+    specs: {
+      manufacturer: data.manufacturer,
+      description: data.description,
+      operatingVoltage: data.operatingVoltage,
+      logicLevel: data.logicLevel,
+      peakCurrentMa: data.peakCurrentMa,
+      pinLayout: data.pinLayout,
+      regulatorSafeCurrentMa: data.regulatorSafeCurrentMa,
+      traits: data.traits || [],
+      requiresExternalPower: Boolean(data.requiresExternalPower),
+      isLogicLevelShifter: Boolean(data.isLogicLevelShifter),
+    },
+    logistics: {
+      mockAsin: data.mockAsin || `B0LAB${padded}AWS`,
+      distributorSku: data.distributorSku || `AWS-SC-USW2-LAB-${padded}`,
+      awsOpenDataSupplyChainRef: data.awsOpenDataSupplyChainRef || `aws-open-data/mock-supply-chain/hardware-lab/${data.partNumber}`,
+      leadTimeDays: data.leadTimeDays || ((index % 9) + 2),
+      region: data.region || 'us-west-2',
+    },
+  };
+}
+
+const hardwareInventorySeed = [
+  item(1, { name: 'ESP32-WROOM-32 DevKit', partNumber: 'MCU-ESP32-WROOM32', category: categories.mcu, manufacturer: 'Espressif Systems', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 260, pinLayout: '38-pin dual-row DevKit GPIO header', regulatorSafeCurrentMa: 500, traits: ['wifi', 'bluetooth', '3v3-host'], description: 'Wi-Fi/Bluetooth microcontroller used for IoT prototypes and wireless telemetry.' }),
+  item(2, { name: 'Raspberry Pi Pico W', partNumber: 'MCU-RP2040-PICOW', category: categories.mcu, manufacturer: 'Raspberry Pi', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 120, pinLayout: '40-pin castellated DIP module', regulatorSafeCurrentMa: 300, traits: ['wifi', 'rp2040', '3v3-host'], description: 'RP2040 dual-core microcontroller board with 2.4 GHz Wi-Fi for MicroPython and C projects.' }),
+  item(3, { name: 'Arduino Uno R4 Minima', partNumber: 'MCU-UNO-R4-MINIMA', category: categories.mcu, manufacturer: 'Arduino', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 180, pinLayout: 'Arduino R3 shield headers', regulatorSafeCurrentMa: 450, traits: ['5v-host', 'beginner'], description: '5V classroom microcontroller platform with RA4M1 MCU and standard Arduino headers.' }),
+  item(4, { name: 'Arduino Nano Every', partNumber: 'MCU-NANO-EVERY', category: categories.mcu, manufacturer: 'Arduino', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 95, pinLayout: '30-pin Nano breadboard header', regulatorSafeCurrentMa: 300, traits: ['5v-host', 'compact'], description: 'Compact 5V ATmega4809 board for breadboard-friendly lab exercises.' }),
+  item(5, { name: 'Teensy 4.1', partNumber: 'MCU-TEENSY-41', category: categories.mcu, manufacturer: 'PJRC', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 250, pinLayout: '48 breadboard pins plus expansion pads', regulatorSafeCurrentMa: 250, traits: ['high-speed', '3v3-host'], description: 'High-performance 600 MHz ARM Cortex-M7 microcontroller for real-time control and DSP.' }),
+  item(6, { name: 'Adafruit Feather M4 Express', partNumber: 'MCU-FEATHER-M4', category: categories.mcu, manufacturer: 'Adafruit', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 180, pinLayout: 'Feather 28-pin header', regulatorSafeCurrentMa: 500, traits: ['circuitpython', '3v3-host'], description: 'SAMD51 Feather board with native USB and LiPo charger for portable STEM projects.' }),
+  item(7, { name: 'STM32 Nucleo-F401RE', partNumber: 'MCU-NUCLEO-F401RE', category: categories.mcu, manufacturer: 'STMicroelectronics', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 140, pinLayout: 'Arduino Uno R3 and ST morpho headers', regulatorSafeCurrentMa: 300, traits: ['stm32', '3v3-host'], description: 'ARM Cortex-M4 development board with debugger and Arduino-compatible expansion.' }),
+  item(8, { name: 'BBC micro:bit v2', partNumber: 'MCU-MICROBIT-V2', category: categories.mcu, manufacturer: 'Micro:bit Educational Foundation', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 90, pinLayout: '25-pin edge connector', regulatorSafeCurrentMa: 190, traits: ['education', '3v3-host'], description: 'Classroom microcontroller with sensors, display matrix, radio, and edge connector.' }),
+
+  item(9, { name: 'Raspberry Pi 5 8GB', partNumber: 'SBC-RPI5-8GB', category: categories.sbc, manufacturer: 'Raspberry Pi', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 5000, pinLayout: '40-pin GPIO header', requiresExternalPower: true, traits: ['linux', '3v3-gpio', 'high-current'], description: 'Linux single-board computer for vision, robotics, and edge services.' }),
+  item(10, { name: 'Raspberry Pi Zero 2 W', partNumber: 'SBC-RPIZERO2W', category: categories.sbc, manufacturer: 'Raspberry Pi', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 1200, pinLayout: '40-pin unpopulated GPIO header', requiresExternalPower: true, traits: ['linux', 'wifi', '3v3-gpio'], description: 'Compact wireless Linux SBC for embedded displays and sensor gateways.' }),
+  item(11, { name: 'NVIDIA Jetson Nano Developer Kit', partNumber: 'SBC-JETSON-NANO', category: categories.sbc, manufacturer: 'NVIDIA', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 4000, pinLayout: '40-pin GPIO header', requiresExternalPower: true, traits: ['ai', 'camera', 'high-current'], description: 'AI-focused Linux SBC for CUDA-based robotics and machine vision labs.' }),
+  item(12, { name: 'BeagleBone Black Rev C', partNumber: 'SBC-BEAGLEBONE-BLK', category: categories.sbc, manufacturer: 'BeagleBoard.org', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 1000, pinLayout: 'Dual 46-pin expansion headers', requiresExternalPower: true, traits: ['linux', 'pru', '3v3-gpio'], description: 'Industrial-style Linux SBC with PRU real-time coprocessors and dense I/O.' }),
+  item(13, { name: 'Orange Pi Zero 3', partNumber: 'SBC-OPI-ZERO3', category: categories.sbc, manufacturer: 'Shenzhen Xunlong', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 2000, pinLayout: '26-pin expansion header', requiresExternalPower: true, traits: ['linux', 'wifi', 'ethernet'], description: 'Small ARM Linux board for networked data collection and lightweight services.' }),
+  item(14, { name: 'ASUS Tinker Board S R2.0', partNumber: 'SBC-TINKER-S-R2', category: categories.sbc, manufacturer: 'ASUS', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 2500, pinLayout: '40-pin GPIO header', requiresExternalPower: true, traits: ['linux', 'multimedia'], description: 'Linux SBC with fast storage and GPIO for embedded HMI prototypes.' }),
+
+  item(15, { name: 'BME280 Environmental Sensor', partNumber: 'SNS-BME280-I2C', category: categories.sensor, manufacturer: 'Bosch Sensortec', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 4, pinLayout: 'VIN GND SCL SDA CSB SDO', traits: ['i2c', 'spi', 'strict-3v3'], description: 'Precision temperature, humidity, and barometric pressure sensor for environmental stations.' }),
+  item(16, { name: 'MPU-6050 IMU Module', partNumber: 'SNS-MPU6050-GY521', category: categories.sensor, manufacturer: 'TDK InvenSense', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 4, pinLayout: 'VCC GND SCL SDA XDA XCL AD0 INT', traits: ['i2c', 'strict-3v3'], description: 'Six-axis accelerometer and gyroscope module for motion tracking.' }),
+  item(17, { name: 'HC-SR04 Ultrasonic Distance Sensor', partNumber: 'SNS-HCSR04-5V', category: categories.sensor, manufacturer: 'Cytron-compatible generic', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 15, pinLayout: 'VCC TRIG ECHO GND', traits: ['5v-logic', 'needs-level-shifter-with-3v3'], description: '5V ultrasonic ranging sensor with 5V echo output that can damage 3.3V GPIO.' }),
+  item(18, { name: 'VL53L0X Time-of-Flight Sensor', partNumber: 'SNS-VL53L0X-I2C', category: categories.sensor, manufacturer: 'STMicroelectronics', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 19, pinLayout: 'VIN GND SCL SDA XSHUT GPIO1', traits: ['i2c', 'laser-tof'], description: 'Compact laser time-of-flight distance sensor for short range robotics.' }),
+  item(19, { name: 'DHT22 Temperature Humidity Sensor', partNumber: 'SNS-DHT22-AM2302', category: categories.sensor, manufacturer: 'Aosong', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 2, pinLayout: 'VCC DATA NC GND', traits: ['one-wire-like', '5v-logic'], description: 'Digital humidity and temperature sensor commonly used in climate logging.' }),
+  item(20, { name: 'INA219 Current Monitor', partNumber: 'SNS-INA219-I2C', category: categories.sensor, manufacturer: 'Texas Instruments', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 1, pinLayout: 'VIN+ VIN- VCC GND SCL SDA', traits: ['i2c', 'current-sense'], description: 'High-side current and bus voltage monitor for power experiments.' }),
+  item(21, { name: 'MAX31855 Thermocouple Amplifier', partNumber: 'SNS-MAX31855-SPI', category: categories.sensor, manufacturer: 'Analog Devices', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 1, pinLayout: 'VIN GND DO CS CLK', traits: ['spi', 'strict-3v3'], description: 'K-type thermocouple converter for high temperature measurement labs.' }),
+  item(22, { name: 'MQ-2 Gas Sensor Module', partNumber: 'SNS-MQ2-5V', category: categories.sensor, manufacturer: 'Winsen-compatible generic', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 160, pinLayout: 'VCC GND DO AO', traits: ['heater', '5v-logic'], description: 'Combustible gas sensor module with analog and digital 5V outputs.' }),
+  item(23, { name: 'TCS34725 Color Sensor', partNumber: 'SNS-TCS34725-I2C', category: categories.sensor, manufacturer: 'ams OSRAM', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 20, pinLayout: 'VIN GND SCL SDA LED INT', traits: ['i2c', 'color'], description: 'RGB color and light sensor with IR filter for optical sorting demos.' }),
+  item(24, { name: 'PIR Motion Sensor HC-SR501', partNumber: 'SNS-HCSR501-PIR', category: categories.sensor, manufacturer: 'Generic', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 65, pinLayout: 'VCC OUT GND', traits: ['motion', '3v3-output'], description: 'Passive infrared motion detector with regulator and 3.3V logic output.' }),
+  item(25, { name: 'Capacitive Soil Moisture Sensor v2', partNumber: 'SNS-SOIL-CAP-V2', category: categories.sensor, manufacturer: 'DFRobot-compatible', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 10, pinLayout: 'VCC GND AOUT', traits: ['analog', '3v3-safe'], description: 'Corrosion-resistant analog soil moisture probe for plant monitoring projects.' }),
+  item(26, { name: 'Adafruit STEMMA I2C Light Sensor VEML7700', partNumber: 'SNS-VEML7700-I2C', category: categories.sensor, manufacturer: 'Vishay', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 1, pinLayout: 'STEMMA QT JST-SH 4-pin', traits: ['i2c', 'low-current'], description: 'Lux sensor module with STEMMA/Qwiic wiring for rapid prototyping.' }),
+
+  item(27, { name: 'SG90 Micro Servo', partNumber: 'ACT-SG90-SERVO', category: categories.actuator, manufacturer: 'TowerPro-compatible', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 650, pinLayout: 'Brown GND Red VCC Orange PWM', requiresExternalPower: true, traits: ['servo', 'high-current'], description: 'Small PWM hobby servo for pan/tilt mechanisms and robot joints.' }),
+  item(28, { name: 'MG996R High Torque Servo', partNumber: 'ACT-MG996R-SERVO', category: categories.actuator, manufacturer: 'TowerPro-compatible', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 2500, pinLayout: 'Brown GND Red VCC Orange PWM', requiresExternalPower: true, traits: ['servo', 'very-high-current'], description: 'Metal-gear servo with high stall current requiring a separate power rail.' }),
+  item(29, { name: '28BYJ-48 Stepper Motor with ULN2003', partNumber: 'ACT-28BYJ48-ULN2003', category: categories.actuator, manufacturer: 'Generic', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 240, pinLayout: 'IN1 IN2 IN3 IN4 VCC GND motor JST', requiresExternalPower: true, traits: ['stepper', '5v-driver'], description: 'Geared 5V stepper motor and Darlington driver board for motion control labs.' }),
+  item(30, { name: '12V DC Gearmotor', partNumber: 'ACT-DCGEAR-12V', category: categories.actuator, manufacturer: 'Pololu-compatible', operatingVoltage: 12.0, logicLevel: 5.0, peakCurrentMa: 1800, pinLayout: 'M+ M- terminals', requiresExternalPower: true, traits: ['motor', '12v', 'driver-required'], description: 'Brushed DC gearmotor for drivetrain experiments; requires motor driver and external 12V supply.' }),
+  item(31, { name: '5V Relay Module 1-Channel', partNumber: 'ACT-RELAY-5V-1CH', category: categories.actuator, manufacturer: 'Songle-compatible', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 90, pinLayout: 'VCC GND IN plus COM NO NC', requiresExternalPower: true, traits: ['relay', '5v-logic'], description: 'Electromechanical relay module with 5V coil and active-low logic input.' }),
+  item(32, { name: 'Addressable RGB LED Strip WS2812B 1m', partNumber: 'ACT-WS2812B-1M', category: categories.actuator, manufacturer: 'Worldsemi', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 3000, pinLayout: '5V DIN GND JST-SM', requiresExternalPower: true, traits: ['led', '5v-logic', 'very-high-current'], description: 'Individually addressable RGB LEDs with large peak current at full white.' }),
+  item(33, { name: '12V Solenoid Lock', partNumber: 'ACT-SOLENOID-12V', category: categories.actuator, manufacturer: 'Generic', operatingVoltage: 12.0, logicLevel: 5.0, peakCurrentMa: 1200, pinLayout: 'Two-wire coil leads', requiresExternalPower: true, traits: ['solenoid', '12v', 'driver-required'], description: 'Linear solenoid actuator requiring MOSFET driver, flyback diode, and external 12V supply.' }),
+  item(34, { name: 'Piezo Buzzer Module', partNumber: 'ACT-BUZZER-5V', category: categories.actuator, manufacturer: 'CUI-compatible', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 35, pinLayout: 'VCC I/O GND', traits: ['audio', '5v-logic'], description: 'Active buzzer module for audible alerts and classroom demos.' }),
+
+  item(35, { name: 'TXS0108E 8-Bit Bidirectional Level Shifter', partNumber: 'PWR-TXS0108E-LEVEL', category: categories.power, manufacturer: 'Texas Instruments', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 50, pinLayout: 'VCCA VCCB OE A1-A8 B1-B8 GND', traits: ['logic-level-shifter', 'bidirectional'], isLogicLevelShifter: true, description: 'Bidirectional 3.3V to 5V logic-level translator for mixed-voltage buses.' }),
+  item(36, { name: 'LM2596 Buck Converter Module', partNumber: 'PWR-LM2596-BUCK', category: categories.power, manufacturer: 'Texas Instruments-compatible', operatingVoltage: 12.0, logicLevel: 5.0, peakCurrentMa: 3000, pinLayout: 'VIN+ VIN- OUT+ OUT-', requiresExternalPower: true, traits: ['buck', 'pdn'], description: 'Adjustable step-down regulator module for external power distribution networks.' }),
+  item(37, { name: 'AMS1117-3.3 Linear Regulator', partNumber: 'PWR-AMS1117-33', category: categories.power, manufacturer: 'Advanced Monolithic Systems-compatible', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 800, pinLayout: 'VIN GND VOUT SOT-223', traits: ['regulator', '3v3'], description: 'Linear 3.3V regulator used on breadboard adapters and small sensor rails.' }),
+  item(38, { name: 'USB-C PD Trigger 12V Module', partNumber: 'PWR-USBC-PD-12V', category: categories.power, manufacturer: 'Generic', operatingVoltage: 12.0, logicLevel: 5.0, peakCurrentMa: 3000, pinLayout: 'USB-C input plus VOUT+ VOUT-', requiresExternalPower: true, traits: ['usb-pd', '12v', 'pdn'], description: 'USB-C Power Delivery sink module configured to request 12V for motors and solenoids.' }),
+  item(39, { name: '5V 3A Breadboard Power Supply', partNumber: 'PWR-BB-5V3A', category: categories.power, manufacturer: 'DFRobot-compatible', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 3000, pinLayout: 'Barrel jack input, breadboard rails, USB-A', requiresExternalPower: true, traits: ['5v-pdn', 'external-power'], description: 'External 5V rail supply for servos, LED strips, and relay modules.' }),
+  item(40, { name: 'LiPo Charger Booster PowerBoost 1000C', partNumber: 'PWR-BOOST1000C', category: categories.power, manufacturer: 'Adafruit', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 1000, pinLayout: 'BAT GND 5V EN USB JST', requiresExternalPower: true, traits: ['battery', 'boost'], description: 'Rechargeable LiPo boost supply with charger for portable 5V prototypes.' }),
+
+  item(41, { name: '2N7000 N-Channel MOSFET', partNumber: 'DSC-2N7000-MOSFET', category: categories.discrete, manufacturer: 'onsemi-compatible', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 200, pinLayout: 'TO-92 G-D-S', traits: ['mosfet', 'low-side-switch'], description: 'Small-signal N-channel MOSFET used for low-current switching and level shifting.' }),
+  item(42, { name: 'IRLZ44N Logic-Level MOSFET', partNumber: 'DSC-IRLZ44N-MOSFET', category: categories.discrete, manufacturer: 'Infineon-compatible', operatingVoltage: 12.0, logicLevel: 5.0, peakCurrentMa: 47000, pinLayout: 'TO-220 G-D-S', traits: ['mosfet', 'motor-driver-stage'], description: 'Logic-level power MOSFET for high-current loads with proper gate resistor and flyback protection.' }),
+  item(43, { name: '1N5819 Schottky Diode', partNumber: 'DSC-1N5819-DIODE', category: categories.discrete, manufacturer: 'Vishay-compatible', operatingVoltage: 12.0, logicLevel: 3.3, peakCurrentMa: 1000, pinLayout: 'DO-41 axial anode/cathode', traits: ['diode', 'reverse-protection'], description: 'Schottky diode for polarity protection and low-drop rectification.' }),
+  item(44, { name: '1N4007 Flyback Diode', partNumber: 'DSC-1N4007-DIODE', category: categories.discrete, manufacturer: 'Diodes Incorporated-compatible', operatingVoltage: 12.0, logicLevel: 5.0, peakCurrentMa: 1000, pinLayout: 'DO-41 axial anode/cathode', traits: ['diode', 'flyback'], description: 'General-purpose diode commonly placed across relay, motor, and solenoid coils.' }),
+  item(45, { name: 'ULN2003A Darlington Driver IC', partNumber: 'DSC-ULN2003A-DRIVER', category: categories.discrete, manufacturer: 'Texas Instruments', operatingVoltage: 5.0, logicLevel: 5.0, peakCurrentMa: 500, pinLayout: '16-pin DIP inputs, outputs, COM, GND', traits: ['driver', 'inductive-loads'], description: 'Seven-channel Darlington sink driver with clamp diodes for relays and steppers.' }),
+  item(46, { name: '74AHCT125 Quad Level Buffer', partNumber: 'DSC-74AHCT125-BUFFER', category: categories.discrete, manufacturer: 'Nexperia', operatingVoltage: 5.0, logicLevel: 3.3, peakCurrentMa: 75, pinLayout: '14-pin DIP/SOIC OE/A/Y channels', traits: ['logic-level-shifter', 'unidirectional'], isLogicLevelShifter: true, description: 'AHCT buffer accepts 3.3V input as high and outputs 5V logic for LED data lines.' }),
+  item(47, { name: 'BSS138 Bidirectional Level Shifter Module', partNumber: 'DSC-BSS138-LEVEL', category: categories.discrete, manufacturer: 'Nexperia-compatible', operatingVoltage: 3.3, logicLevel: 3.3, peakCurrentMa: 50, pinLayout: 'HV LV GND plus four HV/LV channels', traits: ['logic-level-shifter', 'bidirectional', 'i2c'], isLogicLevelShifter: true, description: 'MOSFET-based 3.3V/5V level shifter for I2C and low-speed digital signals.' }),
+  item(48, { name: 'L298N Dual H-Bridge Motor Driver', partNumber: 'DSC-L298N-HBRIDGE', category: categories.discrete, manufacturer: 'STMicroelectronics-compatible', operatingVoltage: 12.0, logicLevel: 5.0, peakCurrentMa: 2000, pinLayout: 'IN1-IN4 ENA ENB 5V GND 12V OUT1-OUT4', requiresExternalPower: true, traits: ['motor-driver', '12v', 'high-current'], description: 'Dual H-bridge motor driver module for brushed DC motors and stepper motors.' }),
+];
+
+module.exports = hardwareInventorySeed;

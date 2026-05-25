@@ -1,208 +1,159 @@
 const express = require('express');
-const router = express.Router();
 const Equipment = require('../models/Equipment');
+const asyncHandler = require('../middleware/asyncHandler');
+const { connectDatabase } = require('../config/database');
 const { validateCircuitSchema } = require('../logic/hardwareValidator');
 
-/**
- * POST /api/checkout
- * 
- * Handles hardware checkout with comprehensive validation:
- * 1. Validates required fields (items array with itemId, quantity)
- * 2. Runs HARDWARE SAFETY VALIDATION (voltage compatibility, current overdraw)
- * 3. Checks inventory availability for all items
- * 4. Uses atomic database operations to prevent race conditions
- * 5. Returns detailed error messages and safety warnings
- * 
- * Request body:
- * {
- *   items: [
- *     { itemId: string, quantity: number, productName: string },
- *     ...
- *   ],
- *   totalPrice: number (optional),
- *   studentId: string (optional, for tracking)
- * }
- * 
- * Response:
- * Success (200): { success: true, checkoutDetails, safetyReport }
- * Error (400): { success: false, error, safetyWarnings }
- * Error (409): { success: false, error: 'INSUFFICIENT_STOCK' }
- */
-router.post('/', async (req, res) => {
-  try {
-    const { items, studentId = 'guest', totalPrice = 0 } = req.body;
+const router = express.Router();
 
-    // ===== VALIDATION: Items array =====
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No items provided for checkout.',
-        code: 'MISSING_ITEMS'
-      });
-    }
+router.post('/', asyncHandler(async (req, res) => {
+  await connectDatabase();
 
-    // ===== FETCH ALL ITEMS FROM DATABASE =====
-    const itemIds = items.map(item => item.itemId);
-    const dbItems = await Equipment.find({ _id: { $in: itemIds } });
+  const { items, studentId = 'guest', totalPrice = 0 } = req.body;
 
-    if (dbItems.length !== itemIds.length) {
-      return res.status(404).json({
-        success: false,
-        error: 'One or more items not found in inventory.',
-        code: 'ITEM_NOT_FOUND'
-      });
-    }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'No items provided for checkout.',
+      code: 'MISSING_ITEMS',
+    });
+  }
 
-    // ===== STEP 1: RUN HARDWARE SAFETY VALIDATION =====
-    // Convert items to component format for validator
-    const componentsForValidation = dbItems.map(item => ({
+  const itemIds = items.map((item) => item.itemId);
+  const dbItems = await Equipment.find({ _id: { $in: itemIds } });
+
+  if (dbItems.length !== itemIds.length) {
+    return res.status(404).json({
+      success: false,
+      error: 'One or more items were not found in inventory.',
+      code: 'ITEM_NOT_FOUND',
+    });
+  }
+
+  const componentsForValidation = dbItems.map((item) => {
+    const request = items.find((requested) => requested.itemId === item._id.toString());
+
+    return {
       id: item._id.toString(),
       name: item.name,
-      type: item.category?.toLowerCase().replace(/\s+/g, '-') || 'unknown',
-      voltage: item.specs?.voltage,
-      specs: item.specs
-    }));
+      partNumber: item.partNumber,
+      quantity: request?.quantity || 1,
+      powerSource: item.specs?.requiresExternalPower ? 'external' : undefined,
+      externalPower: item.specs?.requiresExternalPower || undefined,
+    };
+  });
 
-    const safetyReport = validateCircuitSchema(componentsForValidation);
+  const safetyReport = validateCircuitSchema({
+    projectName: `Checkout request for ${studentId}`,
+    components: componentsForValidation,
+  });
 
-    // ===== CRITICAL SAFETY CHECK =====
-    // If circuit has critical voltage mismatches, abort checkout
-    if (safetyReport.violations.critical.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'HARDWARE SAFETY VIOLATION: Your component selection has critical safety issues.',
-        code: 'SAFETY_VIOLATION',
-        safetyScore: safetyReport.safetyScore,
-        criticalIssues: safetyReport.violations.critical,
-        warnings: safetyReport.warnings,
-        recommendations: safetyReport.violations.critical.map(issue => 
-          `⚠️ ${issue}`
-        )
-      });
-    }
-
-    // ===== STEP 2: CHECK INVENTORY AVAILABILITY =====
-    const itemsWithAvailability = items.map(requested => {
-      const dbItem = dbItems.find(db => db._id.toString() === requested.itemId);
-      return {
-        ...requested,
-        dbItem,
-        available: dbItem ? dbItem.currentAvailable : 0,
-        valid: dbItem && dbItem.currentAvailable >= requested.quantity
-      };
+  const criticalIssues = safetyReport.warnings.filter((warning) => warning.severity === 'critical');
+  if (criticalIssues.length > 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Hardware safety violation. Resolve critical issues before checkout.',
+      code: 'SAFETY_VIOLATION',
+      safetyScore: safetyReport.circuitSafetyScore,
+      criticalIssues,
+      warnings: safetyReport.warnings,
+      recommendations: criticalIssues.map((issue) => issue.mitigation),
     });
+  }
 
-    // Check if all items are available
-    const insufficientItems = itemsWithAvailability.filter(item => !item.valid);
-    if (insufficientItems.length > 0) {
-      return res.status(409).json({
-        success: false,
-        error: 'INSUFFICIENT_STOCK: One or more items not available in requested quantity.',
-        code: 'INSUFFICIENT_STOCK',
-        insufficientItems: insufficientItems.map(item => ({
-          itemId: item.itemId,
-          productName: item.productName,
-          requested: item.quantity,
-          available: item.available
-        }))
-      });
-    }
+  const itemsWithAvailability = items.map((requested) => {
+    const dbItem = dbItems.find((item) => item._id.toString() === requested.itemId);
+    const available = dbItem?.currentAvailable ?? dbItem?.quantity ?? 0;
 
-    // ===== STEP 3: ATOMIC DATABASE UPDATES =====
-    // Deduct inventory for all items in parallel
-    const updatePromises = itemsWithAvailability.map(item =>
-      Equipment.findByIdAndUpdate(
-        item.itemId,
-        { $inc: { currentAvailable: -item.quantity } },
-        { new: true, runValidators: true }
-      )
-    );
+    return {
+      ...requested,
+      dbItem,
+      available,
+      valid: dbItem && available >= requested.quantity,
+    };
+  });
 
-    const updatedItems = await Promise.all(updatePromises);
+  const insufficientItems = itemsWithAvailability.filter((item) => !item.valid);
+  if (insufficientItems.length > 0) {
+    return res.status(409).json({
+      success: false,
+      error: 'One or more items are not available in the requested quantity.',
+      code: 'INSUFFICIENT_STOCK',
+      insufficientItems: insufficientItems.map((item) => ({
+        itemId: item.itemId,
+        productName: item.productName || item.dbItem?.name,
+        requested: item.quantity,
+        available: item.available,
+      })),
+    });
+  }
 
-    // ===== STEP 4: LOG CHECKOUT EVENT =====
-    console.log('✓ CHECKOUT SUCCESSFUL', {
+  const updatedItems = await Promise.all(itemsWithAvailability.map((item) => (
+    Equipment.findOneAndUpdate(
+      {
+        _id: item.itemId,
+        currentAvailable: { $gte: item.quantity },
+      },
+      {
+        $inc: {
+          currentAvailable: -item.quantity,
+          quantity: -item.quantity,
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    )
+  )));
+
+  if (updatedItems.some((item) => !item)) {
+    return res.status(409).json({
+      success: false,
+      error: 'Inventory changed while checking out. Please refresh and try again.',
+      code: 'CHECKOUT_RACE_CONDITION',
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'Checkout completed successfully.',
+    code: 'CHECKOUT_SUCCESS',
+    checkoutDetails: {
       studentId,
       itemCount: items.length,
       totalPrice,
-      safetyScore: safetyReport.safetyScore,
-      timestamp: new Date().toISOString()
-    });
-
-    // ===== SUCCESS RESPONSE =====
-    res.status(200).json({
-      success: true,
-      message: 'Checkout completed successfully.',
-      code: 'CHECKOUT_SUCCESS',
-      checkoutDetails: {
-        studentId,
-        itemCount: items.length,
-        totalPrice,
-        timestamp: new Date().toISOString()
-      },
-      itemDetails: updatedItems.map(item => ({
-        id: item._id,
-        name: item.name,
-        remaining: item.currentAvailable,
-        total: item.totalQuantity
-      })),
-      safetyReport: {
-        score: safetyReport.safetyScore,
-        status: safetyReport.success ? 'SAFE' : 'WARNINGS',
-        warnings: safetyReport.warnings.filter(w => w.severity !== 'INFO')
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Checkout error:', error);
-
-    // Handle specific MongoDB errors
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation error in checkout request.',
-        code: 'VALIDATION_ERROR'
-      });
-    }
-
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid item ID format.',
-        code: 'INVALID_ID_FORMAT'
-      });
-    }
-
-    // Generic server error
-    res.status(500).json({
-      success: false,
-      error: 'Server error during checkout. Please try again later.',
-      code: 'SERVER_ERROR'
-    });
-  }
-});
-
-/**
- * GET /api/checkout/status/:itemId
- * Optionally retrieve current availability of an item
- */
-router.get('/status/:itemId', async (req, res) => {
-  try {
-    const item = await Equipment.findById(req.params.itemId);
-    if (!item) {
-      return res.status(404).json({ message: 'Item not found.' });
-    }
-
-    res.json({
-      itemId: item._id,
+      timestamp: new Date().toISOString(),
+    },
+    itemDetails: updatedItems.map((item) => ({
+      id: item._id,
       name: item.name,
-      currentAvailable: item.currentAvailable,
-      totalQuantity: item.totalQuantity,
-      percentageAvailable: ((item.currentAvailable / item.totalQuantity) * 100).toFixed(1),
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error retrieving item status.' });
+      remaining: item.currentAvailable,
+      total: item.totalQuantity,
+    })),
+    safetyReport: {
+      score: safetyReport.circuitSafetyScore,
+      status: safetyReport.success ? 'SAFE' : 'WARNINGS',
+      warnings: safetyReport.warnings.filter((warning) => warning.severity !== 'info'),
+    },
+  });
+}));
+
+router.get('/status/:itemId', asyncHandler(async (req, res) => {
+  await connectDatabase();
+
+  const item = await Equipment.findById(req.params.itemId);
+  if (!item) {
+    return res.status(404).json({ message: 'Item not found.' });
   }
-});
+
+  return res.json({
+    itemId: item._id,
+    name: item.name,
+    currentAvailable: item.currentAvailable,
+    totalQuantity: item.totalQuantity,
+    percentageAvailable: ((item.currentAvailable / item.totalQuantity) * 100).toFixed(1),
+  });
+}));
 
 module.exports = router;

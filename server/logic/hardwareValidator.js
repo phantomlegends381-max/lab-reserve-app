@@ -1,513 +1,337 @@
-/**
- * HARDWARE SAFETY VALIDATION ENGINE
- * 
- * Comprehensive circuit schema analysis that checks for critical electrical safety issues:
- * 1. Voltage domain mismatches (3.3V ↔ 5V incompatibilities)
- * 2. Current overdraw risks (high-current devices on weak power sources)
- * 3. Component configuration errors (invalid/unknown components)
- * 
- * Returns structured safety report with score (0-100) and detailed warnings.
- * 
- * SAFETY STANDARDS:
- * - All voltage levels must be compatible (within ±0.5V tolerance for logic)
- * - High-current devices (>500mA) require isolated power supplies
- * - All components must exist in active hardware database
- * - Logic-level converters required for voltage domain transitions
- */
+const hardwareInventorySeed = require('../data/hardwareInventorySeed');
 
-/**
- * HARDWARE COMPONENT DATABASE
- * Defines all supported components with electrical specifications
- * 
- * Schema:
- * - id: Unique component identifier
- * - name: Display name
- * - category: Component type (MCU, Sensor, Actuator, Power, Converter, Passive)
- * - voltage: Operating voltage (string like "3.3V" or "5V" or "3.3V-5V")
- * - maxCurrent: Maximum current draw in mA
- * - powerPin: Where power is sourced (MCU_PIN, EXTERNAL_SUPPLY, USB)
- * - traits: Special features (LOGIC_LEVEL_CONVERTER, HIGH_CURRENT, VOLTAGE_TOLERANT)
- */
-const HARDWARE_DATABASE = {
-  // ===== MICROCONTROLLERS =====
-  'esp32': {
-    name: 'ESP32-WROOM-32U',
-    category: 'MCU',
-    voltage: '3.3V',
-    maxCurrent: 80,
-    powerPin: 'EXTERNAL_SUPPLY',
-    traits: ['WIFI', 'BLUETOOTH', 'GPIO_TOLERANT']
-  },
-  'arduino-uno': {
-    name: 'Arduino Uno R3',
-    category: 'MCU',
-    voltage: '5V',
-    maxCurrent: 200,
-    powerPin: 'USB',
-    traits: ['BEGINNER_FRIENDLY']
-  },
-  'arduino-mega': {
-    name: 'Arduino Mega 2560',
-    category: 'MCU',
-    voltage: '5V',
-    maxCurrent: 200,
-    powerPin: 'USB',
-    traits: ['HIGH_PIN_COUNT']
-  },
-  'rpi-pico': {
-    name: 'Raspberry Pi Pico',
-    category: 'MCU',
-    voltage: '3.3V',
-    maxCurrent: 100,
-    powerPin: 'USB',
-    traits: ['MICROPYTHON', 'GPIO_TOLERANT']
-  },
-  'esp32-cam': {
-    name: 'ESP32-CAM',
-    category: 'MCU',
-    voltage: '3.3V',
-    maxCurrent: 150,
-    powerPin: 'EXTERNAL_SUPPLY',
-    traits: ['CAMERA', 'WIFI']
-  },
+const inventoryByPartNumber = new Map(
+  hardwareInventorySeed.map((component) => [component.partNumber, component])
+);
 
-  // ===== SENSORS =====
-  'hc-sr04': {
-    name: 'HC-SR04 Ultrasonic Sensor',
-    category: 'Sensor',
-    voltage: '5V',
-    maxCurrent: 15,
-    powerPin: 'MCU_PIN',
-    traits: ['STRICTLY_5V']
-  },
-  'dht11': {
-    name: 'DHT11 Temperature/Humidity',
-    category: 'Sensor',
-    voltage: '3.3V-5V',
-    maxCurrent: 5,
-    powerPin: 'MCU_PIN',
-    traits: ['VOLTAGE_TOLERANT']
-  },
-  'mpu6050': {
-    name: 'MPU-6050 Gyroscope/Accelerometer',
-    category: 'Sensor',
-    voltage: '3.3V',
-    maxCurrent: 4,
-    powerPin: 'MCU_PIN',
-    traits: ['I2C', 'STRICT_3V3']
-  },
-  'bme280': {
-    name: 'BME280 Environmental Sensor',
-    category: 'Sensor',
-    voltage: '3.3V',
-    maxCurrent: 4,
-    powerPin: 'MCU_PIN',
-    traits: ['I2C_SPI', 'STRICT_3V3']
-  },
-  'vl53l0x': {
-    name: 'VL53L0X Time-of-Flight Sensor',
-    category: 'Sensor',
-    voltage: '3.3V',
-    maxCurrent: 5,
-    powerPin: 'MCU_PIN',
-    traits: ['I2C', 'STRICT_3V3']
-  },
+const inventoryByName = new Map(
+  hardwareInventorySeed.map((component) => [component.name.toLowerCase(), component])
+);
 
-  // ===== ACTUATORS =====
-  'sg90': {
-    name: 'SG90 Micro Servo',
-    category: 'Actuator',
-    voltage: '5V',
-    maxCurrent: 500,
-    powerPin: 'EXTERNAL_SUPPLY',
-    traits: ['HIGH_CURRENT', 'MUST_EXTERNAL_POWER']
-  },
-  'mg996r': {
-    name: 'MG996R Metal Gear Servo',
-    category: 'Actuator',
-    voltage: '6V',
-    maxCurrent: 900,
-    powerPin: 'EXTERNAL_SUPPLY',
-    traits: ['HIGH_CURRENT', 'MUST_EXTERNAL_POWER']
-  },
-  'dc-motor': {
-    name: 'DC Motor with Gearbox',
-    category: 'Actuator',
-    voltage: '3V-6V',
-    maxCurrent: 600,
-    powerPin: 'EXTERNAL_SUPPLY',
-    traits: ['HIGH_CURRENT', 'MUST_EXTERNAL_POWER']
-  },
-
-  // ===== LOGIC LEVEL CONVERTERS =====
-  'level-converter-5v-3v': {
-    name: 'Bidirectional Logic Level Converter (5V ↔ 3.3V)',
-    category: 'Converter',
-    voltage: '3.3V-5V',
-    maxCurrent: 50,
-    powerPin: 'MCU_PIN',
-    traits: ['LOGIC_LEVEL_CONVERTER', 'VOLTAGE_BRIDGE']
-  },
-  'fet-level-shifter': {
-    name: 'FET-Based Level Shifter',
-    category: 'Converter',
-    voltage: '3.3V-5V',
-    maxCurrent: 100,
-    powerPin: 'MCU_PIN',
-    traits: ['LOGIC_LEVEL_CONVERTER', 'HIGH_SPEED']
-  },
-
-  // ===== POWER SUPPLIES =====
-  'usb-power-supply': {
-    name: 'USB-C Programmable Power Supply',
-    category: 'Power',
-    voltage: '5V-30V',
-    maxCurrent: 3000,
-    powerPin: 'EXTERNAL',
-    traits: ['EXTERNAL_POWER', 'ADJUSTABLE']
-  },
-  '5v-regulator': {
-    name: '5V Voltage Regulator',
-    category: 'Power',
-    voltage: '5V',
-    maxCurrent: 1000,
-    powerPin: 'EXTERNAL',
-    traits: ['EXTERNAL_POWER']
-  },
-
-  // ===== PASSIVE COMPONENTS =====
-  'breadboard': {
-    name: 'Breadboard 830-point',
-    category: 'Passive',
-    voltage: 'N/A',
-    maxCurrent: 0,
-    powerPin: 'N/A',
-    traits: ['MECHANICAL']
-  },
-  'jumper-wires': {
-    name: 'Jumper Wires',
-    category: 'Passive',
-    voltage: 'N/A',
-    maxCurrent: 0,
-    powerPin: 'N/A',
-    traits: ['MECHANICAL']
-  },
-  'resistor': {
-    name: 'Resistor',
-    category: 'Passive',
-    voltage: 'N/A',
-    maxCurrent: 0,
-    powerPin: 'N/A',
-    traits: ['MECHANICAL']
-  }
+const defaultRegulatorLimits = {
+  3.3: 250,
+  5.0: 450,
 };
 
-/**
- * VOLTAGE COMPATIBILITY RULES
- * Defines which voltage levels can safely work together
- * Used for intelligent checking of voltage domain mismatches
- */
-const VOLTAGE_RULES = {
-  '3.3V': {
-    compatible: ['3.3V', '3.3V-5V'],
-    incompatible: ['5V', '6V'],
-    needsConverter: true
-  },
-  '5V': {
-    compatible: ['5V', '3.3V-5V'],
-    incompatible: ['3.3V', '6V'],
-    needsConverter: true
-  },
-  '6V': {
-    compatible: ['6V', '3.3V-5V'],
-    incompatible: ['3.3V', '5V'],
-    needsConverter: true
-  },
-  '3.3V-5V': {
-    compatible: ['3.3V', '5V', '3.3V-5V', '6V'],
-    incompatible: [],
-    needsConverter: false
+function normalizeCircuitSchema(payload = {}) {
+  if (Array.isArray(payload)) {
+    return { components: payload, connections: [] };
   }
-};
 
-/**
- * validateCircuitSchema
- * Main validation function that analyzes circuit structure for safety issues
- * 
- * @param {Array} components - List of component objects from circuit file
- * @param {Array} connections - List of connection rules (optional)
- * @returns {Object} Safety report with score and warnings
- */
-function validateCircuitSchema(components = [], connections = []) {
-  // Initialize safety report
-  const report = {
-    success: true,
-    safetyScore: 100,
-    warnings: [],
-    violations: {
-      critical: [],
-      warning: [],
-      info: []
-    },
-    componentAnalysis: {
-      total: components.length,
-      validated: 0,
-      invalid: 0
-    }
+  return {
+    projectName: payload.projectName || payload.name || 'Untitled circuit',
+    components: Array.isArray(payload.components) ? payload.components : [],
+    connections: Array.isArray(payload.connections) ? payload.connections : [],
   };
-
-  if (!components || components.length === 0) {
-    report.violations.info.push('No components provided for validation');
-    return report;
-  }
-
-  // ===== STEP 1: VALIDATE EACH COMPONENT =====
-  const validatedComponents = [];
-  const componentMap = new Map();
-
-  for (const component of components) {
-    const componentId = component.id || component.name;
-    
-    // Check if component exists in database
-    if (!HARDWARE_DATABASE[component.type]) {
-      report.violations.critical.push(
-        `Unknown component: "${component.name}" (type: ${component.type}). Not in active hardware database.`
-      );
-      report.componentAnalysis.invalid++;
-      continue;
-    }
-
-    const dbComponent = HARDWARE_DATABASE[component.type];
-    validatedComponents.push({
-      ...component,
-      spec: dbComponent
-    });
-    componentMap.set(componentId, dbComponent);
-    report.componentAnalysis.validated++;
-  }
-
-  // ===== STEP 2: VOLTAGE DOMAIN MISMATCH DETECTION =====
-  // Find all microcontrollers in the circuit
-  const microcontrollers = validatedComponents.filter(c => c.spec.category === 'MCU');
-  const sensors = validatedComponents.filter(c => c.spec.category === 'Sensor');
-  const actuators = validatedComponents.filter(c => c.spec.category === 'Actuator');
-  const converters = validatedComponents.filter(c => c.spec.category === 'Converter');
-  
-  if (microcontrollers.length > 0) {
-    for (const mcu of microcontrollers) {
-      const mcuVoltage = mcu.spec.voltage;
-
-      // Check sensors connected to this MCU
-      for (const sensor of sensors) {
-        const sensorVoltage = sensor.spec.voltage;
-        
-        // Check if voltages are incompatible
-        if (!isVoltageCompatible(mcuVoltage, sensorVoltage)) {
-          const hasConverter = converters.length > 0;
-          
-          if (!hasConverter) {
-            report.violations.critical.push(
-              `VOLTAGE MISMATCH: ${mcu.name} (${mcuVoltage}) connected directly to ${sensor.name} (${sensorVoltage}) without a logic-level converter. This will damage the ${mcuVoltage} device. Solution: Add a bidirectional logic-level converter between the two voltage domains.`
-            );
-            report.safetyScore -= 25;
-            report.success = false;
-          } else {
-            report.violations.warning.push(
-              `Voltage domain mismatch detected: ${mcu.name} (${mcuVoltage}) to ${sensor.name} (${sensorVoltage}). Logic-level converter is present in inventory but may not be properly connected in the circuit.`
-            );
-            report.safetyScore -= 10;
-          }
-        }
-      }
-
-      // Check actuators connected to this MCU
-      for (const actuator of actuators) {
-        const actuatorVoltage = actuator.spec.voltage;
-        
-        // Voltage incompatibility check
-        if (!isVoltageCompatible(mcuVoltage, actuatorVoltage)) {
-          const hasConverter = converters.length > 0;
-          
-          if (!hasConverter) {
-            report.violations.critical.push(
-              `VOLTAGE MISMATCH: ${mcu.name} (${mcuVoltage}) cannot drive ${actuator.name} (${actuatorVoltage}) directly. Solution: Add a logic-level converter for signal lines, and use an external power supply for the actuator.`
-            );
-            report.safetyScore -= 25;
-            report.success = false;
-          }
-        }
-      }
-    }
-  }
-
-  // ===== STEP 3: CURRENT OVERDRAW RISK DETECTION =====
-  // Check if high-current devices are on MCU pins (dangerous!)
-  for (const component of validatedComponents) {
-    const spec = component.spec;
-    
-    // High-current components should NEVER draw from MCU pins
-    if (spec.traits && spec.traits.includes('HIGH_CURRENT')) {
-      if (spec.powerPin === 'MCU_PIN') {
-        report.violations.critical.push(
-          `CURRENT OVERDRAW RISK: ${component.name} draws ${spec.maxCurrent}mA and must NOT be powered from MCU pins. The MCU regulator can only supply ~100mA safely. SOLUTION: Connect ${component.name} to an isolated external power supply (USB adapter, battery pack, etc.).`
-        );
-        report.safetyScore -= 30;
-        report.success = false;
-      }
-    }
-
-    // Check if device can handle the voltage
-    if (spec.traits && spec.traits.includes('MUST_EXTERNAL_POWER')) {
-      const hasPowerSupply = validatedComponents.some(c => 
-        c.spec.category === 'Power' && c.spec.powerPin === 'EXTERNAL'
-      );
-      
-      if (!hasPowerSupply) {
-        report.violations.critical.push(
-          `POWER SUPPLY MISSING: ${component.name} requires an isolated external power supply (${spec.voltage}, ${spec.maxCurrent}mA). No external power supply found in circuit design.`
-        );
-        report.safetyScore -= 20;
-        report.success = false;
-      }
-    }
-  }
-
-  // ===== STEP 4: COMPONENT CONFIGURATION VALIDATION =====
-  for (const component of validatedComponents) {
-    const spec = component.spec;
-    
-    // Strict 3.3V components check
-    if (spec.traits && spec.traits.includes('STRICT_3V3')) {
-      if (component.suppliedVoltage && component.suppliedVoltage !== '3.3V') {
-        report.violations.critical.push(
-          `VOLTAGE CONFIGURATION ERROR: ${component.name} requires exactly 3.3V but is receiving ${component.suppliedVoltage}. This will permanently damage the component.`
-        );
-        report.safetyScore -= 25;
-        report.success = false;
-      }
-    }
-
-    // Strictly 5V components check
-    if (spec.traits && spec.traits.includes('STRICTLY_5V')) {
-      if (component.suppliedVoltage && component.suppliedVoltage !== '5V') {
-        report.violations.critical.push(
-          `VOLTAGE CONFIGURATION ERROR: ${component.name} requires exactly 5V but is receiving ${component.suppliedVoltage}.`
-        );
-        report.safetyScore -= 25;
-        report.success = false;
-      }
-    }
-  }
-
-  // ===== BUILD WARNING MESSAGES =====
-  report.warnings = [
-    ...report.violations.critical.map(msg => ({ severity: 'CRITICAL', message: msg })),
-    ...report.violations.warning.map(msg => ({ severity: 'WARNING', message: msg })),
-    ...report.violations.info.map(msg => ({ severity: 'INFO', message: msg }))
-  ];
-
-  // Clamp safety score to 0-100 range
-  report.safetyScore = Math.max(0, Math.min(100, report.safetyScore));
-
-  return report;
 }
 
-/**
- * isVoltageCompatible
- * Checks if two voltage levels can safely work together
- * 
- * @param {string} voltage1 - First voltage level (e.g., "3.3V")
- * @param {string} voltage2 - Second voltage level (e.g., "5V")
- * @returns {boolean} True if compatible, false if would cause damage
- */
-function isVoltageCompatible(voltage1, voltage2) {
-  // Exact match is always compatible
-  if (voltage1 === voltage2) return true;
+function findInventoryComponent(component) {
+  if (!component) return null;
 
-  // Check if either is a tolerance range
-  const rules1 = VOLTAGE_RULES[voltage1];
-  const rules2 = VOLTAGE_RULES[voltage2];
+  const candidates = [
+    component.partNumber,
+    component.type,
+    component.sku,
+    component.name,
+  ].filter(Boolean);
 
-  if (rules1 && rules1.compatible.includes(voltage2)) return true;
-  if (rules2 && rules2.compatible.includes(voltage1)) return true;
+  for (const candidate of candidates) {
+    const exact = inventoryByPartNumber.get(candidate);
+    if (exact) return exact;
 
-  return false;
+    const byName = inventoryByName.get(String(candidate).toLowerCase());
+    if (byName) return byName;
+  }
+
+  return null;
 }
 
-/**
- * parseCircuitFile
- * Converts various circuit file formats into standard component format
- * 
- * Supports:
- * - BOM JSON: { components: [{id, name, type, quantity}] }
- * - CSV/TSV: Parsed into components array
- * - Fritzing: XML with component references
- * 
- * @param {string} fileContent - Raw file content
- * @param {string} fileType - File format (json, csv, fritzing, text)
- * @returns {Array} Normalized component array
- */
-function parseCircuitFile(fileContent, fileType = 'json') {
-  try {
-    if (fileType === 'json') {
-      const data = JSON.parse(fileContent);
-      return data.components || data || [];
-    }
+function validateCircuitSchema(rawPayload = {}) {
+  const schema = normalizeCircuitSchema(rawPayload);
+  const warnings = [];
+  const components = schema.components.map((component, index) => {
+    const inventoryItem = findInventoryComponent(component);
 
-    if (fileType === 'csv' || fileType === 'tsv') {
-      const delimiter = fileType === 'csv' ? ',' : '\t';
-      const lines = fileContent.split('\n');
-      const headers = lines[0].split(delimiter);
-      
-      return lines.slice(1)
-        .filter(line => line.trim())
-        .map(line => {
-          const values = line.split(delimiter);
-          return {
-            id: values[headers.indexOf('id')] || values[0],
-            name: values[headers.indexOf('name')] || values[1],
-            type: values[headers.indexOf('type')] || values[2],
-            quantity: parseInt(values[headers.indexOf('quantity')] || 1)
-          };
-        });
-    }
-
-    if (fileType === 'fritzing' || fileType === 'xml') {
-      // Simple XML/Fritzing parser
-      const componentRegex = /<component[^>]*id="([^"]*)"[^>]*>.*?<title>([^<]*)<\/title>/gs;
-      const components = [];
-      let match;
-
-      while ((match = componentRegex.exec(fileContent)) !== null) {
-        components.push({
-          id: match[1],
-          name: match[2],
-          type: match[2].toLowerCase()
-        });
-      }
-
-      return components;
-    }
-
-    // Fallback: treat as newline-separated component list
-    return fileContent
-      .split('\n')
-      .filter(line => line.trim())
-      .map(line => ({
-        name: line.trim(),
-        type: line.trim().toLowerCase()
+    if (!inventoryItem) {
+      warnings.push(createWarning({
+        code: 'UNKNOWN_COMPONENT',
+        severity: 'critical',
+        componentId: component.id || component.partNumber || component.name || `component-${index + 1}`,
+        componentName: component.name || component.partNumber || 'Unknown component',
+        message: 'Component is not present in the approved hardware inventory.',
+        mitigation: 'Use a known partNumber from the Lab-Reserve inventory seed before approving checkout.',
+        penalty: 20,
       }));
-  } catch (error) {
-    console.error('Error parsing circuit file:', error);
-    return [];
+    }
+
+    return {
+      id: component.id || component.ref || component.partNumber || `component-${index + 1}`,
+      quantity: Number(component.quantity || 1),
+      suppliedBy: component.suppliedBy,
+      powerSource: component.powerSource,
+      raw: component,
+      inventory: inventoryItem,
+    };
+  });
+
+  const knownComponents = components.filter((component) => component.inventory);
+  const hostControllers = knownComponents.filter(isHostController);
+  const levelShifters = knownComponents.filter((component) => component.inventory.specs.isLogicLevelShifter);
+
+  if (schema.components.length === 0) {
+    warnings.push(createWarning({
+      code: 'EMPTY_BOM',
+      severity: 'critical',
+      componentId: 'bom',
+      componentName: 'Bill of Materials',
+      message: 'No components were provided for validation.',
+      mitigation: 'Upload a JSON BOM with at least one controller and one attached component.',
+      penalty: 35,
+    }));
   }
+
+  if (hostControllers.length === 0 && knownComponents.length > 0) {
+    warnings.push(createWarning({
+      code: 'NO_HOST_CONTROLLER',
+      severity: 'warning',
+      componentId: 'bom',
+      componentName: 'Circuit topology',
+      message: 'No microcontroller or single-board-computer host was detected.',
+      mitigation: 'Include the board that owns the GPIO pins so voltage domains and regulator limits can be checked.',
+      penalty: 10,
+    }));
+  }
+
+  warnings.push(...checkVoltageDomains(knownComponents, schema.connections, levelShifters));
+  warnings.push(...checkCurrentOverdraw(knownComponents, schema.connections, hostControllers));
+  warnings.push(...checkExternalPowerRequirements(knownComponents));
+
+  const penalty = warnings.reduce((total, warning) => total + warning.penalty, 0);
+  const circuitSafetyScore = Math.max(0, Math.min(100, 100 - penalty));
+  const criticalCount = warnings.filter((warning) => warning.severity === 'critical').length;
+
+  return {
+    success: criticalCount === 0,
+    circuitSafetyScore,
+    warnings: warnings.map(({ penalty: _penalty, ...warning }) => warning),
+    diagnostics: {
+      projectName: schema.projectName,
+      componentCount: schema.components.length,
+      knownComponentCount: knownComponents.length,
+      unknownComponentCount: schema.components.length - knownComponents.length,
+      connectionCount: schema.connections.length,
+      hostControllers: hostControllers.map(toDiagnosticComponent),
+      levelShiftersDetected: levelShifters.map(toDiagnosticComponent),
+    },
+  };
 }
 
-// ===== EXPORTS =====
+function checkVoltageDomains(components, connections, levelShifters) {
+  const warnings = [];
+  const connectedPairs = getConnectionPairs(components, connections);
+
+  for (const [source, target, connection] of connectedPairs) {
+    if (!source.inventory || !target.inventory) continue;
+    if (connection && !connection.inferred && normalizePurpose(connection.purpose) === 'power') continue;
+
+    const sourceLogic = source.inventory.specs.logicLevel;
+    const targetLogic = target.inventory.specs.logicLevel;
+    const sourceIsHost = isHostController(source);
+    const targetIsHost = isHostController(target);
+
+    if (!sourceIsHost && !targetIsHost) continue;
+    if (!isUnsafeLogicMismatch(sourceLogic, targetLogic)) continue;
+    if (connectionHasLevelShifter(connection, components, levelShifters)) continue;
+
+    const host = sourceIsHost ? source : target;
+    const peripheral = sourceIsHost ? target : source;
+
+    warnings.push(createWarning({
+      code: 'VOLTAGE_DOMAIN_VIOLATION',
+      severity: 'critical',
+      componentId: peripheral.id,
+      componentName: peripheral.inventory.name,
+      relatedComponentId: host.id,
+      relatedComponentName: host.inventory.name,
+      message: `${host.inventory.name} uses ${host.inventory.specs.logicLevel}V GPIO, but ${peripheral.inventory.name} exposes ${peripheral.inventory.specs.logicLevel}V logic on the connected signal path.`,
+      mitigation: 'Insert a bidirectional 3.3V/5V logic-level shifter in the topology or choose a voltage-compatible component.',
+      evidence: {
+        hostLogicLevel: host.inventory.specs.logicLevel,
+        peripheralLogicLevel: peripheral.inventory.specs.logicLevel,
+        connection,
+      },
+      penalty: 30,
+    }));
+  }
+
+  return warnings;
+}
+
+function checkCurrentOverdraw(components, connections, hostControllers) {
+  const warnings = [];
+
+  for (const host of hostControllers) {
+    const safeLimit = host.inventory.specs.regulatorSafeCurrentMa
+      || defaultRegulatorLimits[host.inventory.specs.logicLevel]
+      || 250;
+
+    const directLoads = components.filter((component) => {
+      if (component.id === host.id || !component.inventory) return false;
+      if (component.powerSource === 'external' || component.raw.externalPower === true) return false;
+      if (component.suppliedBy === host.id || component.powerSource === host.id) return true;
+
+      return connections.some((connection) => (
+        isSameEndpoint(connection.from, host.id)
+        && isSameEndpoint(connection.to, component.id)
+        && normalizePurpose(connection.purpose) === 'power'
+        && connection.via !== 'external'
+      ));
+    });
+
+    const totalCurrentMa = directLoads.reduce((total, component) => (
+      total + (component.inventory.specs.peakCurrentMa * component.quantity)
+    ), 0);
+
+    if (totalCurrentMa > safeLimit) {
+      warnings.push(createWarning({
+        code: 'CURRENT_OVERDRAW_CASCADE',
+        severity: 'critical',
+        componentId: host.id,
+        componentName: host.inventory.name,
+        message: `${host.inventory.name} regulator load is estimated at ${totalCurrentMa}mA, above its safe ${safeLimit}mA lab threshold.`,
+        mitigation: 'Move servos, motors, relays, heaters, LED strips, and SBC loads to an external PDN with a shared ground.',
+        evidence: {
+          safeLimitMa: safeLimit,
+          estimatedLoadMa: totalCurrentMa,
+          directLoads: directLoads.map(toDiagnosticComponent),
+        },
+        penalty: 35,
+      }));
+    } else if (directLoads.length > 0 && totalCurrentMa > safeLimit * 0.75) {
+      warnings.push(createWarning({
+        code: 'REGULATOR_HEADROOM_LOW',
+        severity: 'warning',
+        componentId: host.id,
+        componentName: host.inventory.name,
+        message: `${host.inventory.name} regulator load is ${totalCurrentMa}mA, leaving little margin below the ${safeLimit}mA threshold.`,
+        mitigation: 'Use an external power rail for non-trivial loads before adding more components.',
+        evidence: {
+          safeLimitMa: safeLimit,
+          estimatedLoadMa: totalCurrentMa,
+          directLoads: directLoads.map(toDiagnosticComponent),
+        },
+        penalty: 12,
+      }));
+    }
+  }
+
+  return warnings;
+}
+
+function checkExternalPowerRequirements(components) {
+  return components
+    .filter((component) => component.inventory.specs.requiresExternalPower)
+    .filter((component) => component.powerSource !== 'external' && component.raw.externalPower !== true)
+    .map((component) => createWarning({
+      code: 'EXTERNAL_POWER_REQUIRED',
+      severity: 'critical',
+      componentId: component.id,
+      componentName: component.inventory.name,
+      message: `${component.inventory.name} peaks at ${component.inventory.specs.peakCurrentMa}mA and must not be powered from a controller pin.`,
+      mitigation: 'Assign this component to an external supply or PDN in the BOM and connect grounds together.',
+      evidence: {
+        peakCurrentMa: component.inventory.specs.peakCurrentMa,
+        operatingVoltage: component.inventory.specs.operatingVoltage,
+      },
+      penalty: 18,
+    }));
+}
+
+function getConnectionPairs(components, connections) {
+  if (connections.length === 0) {
+    const hosts = components.filter(isHostController);
+    const peripherals = components.filter((component) => !isHostController(component));
+    return hosts.flatMap((host) => peripherals.map((peripheral) => [host, peripheral, { inferred: true }]));
+  }
+
+  return connections
+    .map((connection) => {
+      const source = components.find((component) => isSameEndpoint(connection.from, component.id));
+      const target = components.find((component) => isSameEndpoint(connection.to, component.id));
+      return source && target ? [source, target, connection] : null;
+    })
+    .filter(Boolean);
+}
+
+function connectionHasLevelShifter(connection, components, levelShifters) {
+  if (levelShifters.length === 0) return false;
+
+  const via = connection && connection.via;
+  if (!via) return false;
+
+  if (Array.isArray(via)) {
+    return via.some((viaId) => isLevelShifterId(viaId, levelShifters));
+  }
+
+  return isLevelShifterId(via, levelShifters);
+}
+
+function isLevelShifterId(value, levelShifters) {
+  return levelShifters.some((component) => (
+    component.id === value
+    || component.inventory.partNumber === value
+    || component.inventory.name === value
+  ));
+}
+
+function isUnsafeLogicMismatch(sourceLogic, targetLogic) {
+  return Math.abs(Number(sourceLogic) - Number(targetLogic)) >= 1.0;
+}
+
+function isHostController(component) {
+  return component.inventory
+    && ['Microcontrollers', 'Single Board Computers'].includes(component.inventory.category);
+}
+
+function isSameEndpoint(endpoint, componentId) {
+  if (!endpoint) return false;
+  if (typeof endpoint === 'string') return endpoint === componentId;
+  return endpoint.componentId === componentId || endpoint.id === componentId;
+}
+
+function normalizePurpose(purpose) {
+  return String(purpose || '').toLowerCase();
+}
+
+function createWarning({ penalty, ...warning }) {
+  return {
+    severity: warning.severity,
+    code: warning.code,
+    componentId: warning.componentId,
+    componentName: warning.componentName,
+    relatedComponentId: warning.relatedComponentId,
+    relatedComponentName: warning.relatedComponentName,
+    message: warning.message,
+    mitigation: warning.mitigation,
+    evidence: warning.evidence || {},
+    penalty,
+  };
+}
+
+function toDiagnosticComponent(component) {
+  return {
+    id: component.id,
+    partNumber: component.inventory.partNumber,
+    name: component.inventory.name,
+    category: component.inventory.category,
+    operatingVoltage: component.inventory.specs.operatingVoltage,
+    logicLevel: component.inventory.specs.logicLevel,
+    peakCurrentMa: component.inventory.specs.peakCurrentMa,
+  };
+}
+
 module.exports = {
   validateCircuitSchema,
-  parseCircuitFile,
-  HARDWARE_DATABASE,
-  VOLTAGE_RULES,
-  isVoltageCompatible
+  normalizeCircuitSchema,
+  hardwareInventorySeed,
 };

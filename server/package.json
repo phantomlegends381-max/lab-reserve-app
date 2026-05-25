@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "seed": "node scripts/seedInventory.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

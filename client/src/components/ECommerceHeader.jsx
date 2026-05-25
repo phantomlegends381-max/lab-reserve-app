@@ -20,7 +20,7 @@
  * - Search input is clearly labeled
  */
 
-import React, { useState } from 'react';
+import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 
@@ -39,29 +39,26 @@ const CATEGORIES = [
   { id: 'passive', label: 'Passive Components', icon: '⚛️' }
 ];
 
-function ECommerceHeader({ onSearch, onFilter, activeCategory, filteredCount, totalCount }) {
+function ECommerceHeader({ searchInput, onSearch, onFilter, activeCategory, filteredCount, totalCount }) {
   // ===== STATE =====
   const { cartCount } = useCart();
-  const [searchValue, setSearchValue] = useState('');
 
-  // ===== EVENT HANDLERS =====
+  // ===== MEMOIZED HANDLERS =====
   /**
    * handleSearch
-   * Triggers search callback when user types
+   * Triggers search callback immediately (debouncing happens in parent)
    */
-  const handleSearch = (e) => {
-    const value = e.target.value;
-    setSearchValue(value);
-    onSearch(value);
-  };
+  const handleSearch = useCallback((e) => {
+    onSearch(e.target.value);
+  }, [onSearch]);
 
   /**
    * handleCategoryClick
    * Triggers filter callback when category selected
    */
-  const handleCategoryClick = (categoryId) => {
+  const handleCategoryClick = useCallback((categoryId) => {
     onFilter(categoryId === 'all' ? 'All' : categoryId);
-  };
+  }, [onFilter]);
 
   // ===== RENDER =====
   return (
@@ -90,7 +87,7 @@ function ECommerceHeader({ onSearch, onFilter, activeCategory, filteredCount, to
               <input
                 type="text"
                 placeholder="Search products, SKU, or specs..."
-                value={searchValue}
+                value={searchInput}
                 onChange={handleSearch}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
               />

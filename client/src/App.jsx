@@ -26,7 +26,7 @@
  * - Local state: Search, category filters, loading
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ECommerceHeader from './components/ECommerceHeader';
 import ECommerceProductCard from './components/ECommerceProductCard';
@@ -40,8 +40,30 @@ import { premiumInventory } from './data/premiumInventory';
  */
 function StorefrontPage() {
   // ===== STATE =====
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');  // Instant UI feedback
+  const [searchTerm, setSearchTerm] = useState('');    // Debounced for filtering
   const [selectedCategory, setSelectedCategory] = useState('All');
+
+  // ===== DEBOUNCED SEARCH =====
+  // Only update the actual search term after 300ms of inactivity
+  // This prevents expensive filtering on every keystroke
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      setSearchTerm(searchInput);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchInput]);
+
+  // ===== MEMOIZED HANDLERS =====
+  // Prevent header from re-rendering unnecessarily
+  const handleSearch = useCallback((value) => {
+    setSearchInput(value);
+  }, []);
+
+  const handleFilter = useCallback((category) => {
+    setSelectedCategory(category);
+  }, []);
 
   // ===== FILTERING LOGIC =====
   // useMemo optimizes filtering to prevent unnecessary recalculations
@@ -83,8 +105,9 @@ function StorefrontPage() {
     <div className="min-h-screen bg-gray-50">
       {/* HEADER */}
       <ECommerceHeader
-        onSearch={setSearchTerm}
-        onFilter={setSelectedCategory}
+        searchInput={searchInput}
+        onSearch={handleSearch}
+        onFilter={handleFilter}
         activeCategory={selectedCategory}
         filteredCount={filteredProducts.length}
         totalCount={premiumInventory.length}
